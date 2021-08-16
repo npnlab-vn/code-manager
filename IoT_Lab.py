@@ -4,16 +4,19 @@ import time
 import  sys
 from  Adafruit_IO import  MQTTClient
 
-AIO_FEED_ID = ""
+AIO_FEED_IDS = ["bbc-led", "bbc-pump"]
+
+
 AIO_USERNAME = ""
 AIO_KEY = ""
 
 def  connected(client):
     print("Ket noi thanh cong...")
-    client.subscribe(AIO_FEED_ID)
+    for feed in AIO_FEED_IDS:
+        client.subscribe(feed)
 
 def  subscribe(client , userdata , mid , granted_qos):
-    print("Subscribe thanh cong...")
+    print("Subcribe thanh cong...")
 
 def  disconnected(client):
     print("Ngat ket noi...")
@@ -21,8 +24,16 @@ def  disconnected(client):
 
 def  message(client , feed_id , payload):
     print("Nhan du lieu: " + payload)
-    ser.write((str(payload) + "#").encode())
+    if isMicrobitConnected:
+        ser.write((str(payload) + "#").encode())
 
+client = MQTTClient(AIO_USERNAME , AIO_KEY)
+client.on_connect = connected
+client.on_disconnect = disconnected
+client.on_message = message
+client.on_subscribe = subscribe
+client.connect()
+client.loop_background()
 
 def getPort():
     ports = serial.tools.list_ports.comports()
@@ -36,18 +47,37 @@ def getPort():
             commPort = (splitPort[0])
     return commPort
 
-ser = serial.Serial( port=getPort(), baudrate=115200)
+isMicrobitConnected = False
+if getPort() != "None":
+    ser = serial.Serial( port=getPort(), baudrate=115200)
+    isMicrobitConnected = True
 
-client = MQTTClient(AIO_USERNAME , AIO_KEY)
-client.on_connect = connected
-client.on_disconnect = disconnected
-client.on_message = message
-client.on_subscribe = subscribe
-client.connect()
-client.loop_background()
+
+def processData(data):
+    data = data.replace("!", "")
+    data = data.replace("#", "")
+    splitData = data.split(":")
+    print(splitData)
+    if splitData[1] == "TEMP":
+        client.publish("bbc-temp", splitData[2])
+
+mess = ""
+def readSerial():
+    bytesToRead = ser.inWaiting()
+    if (bytesToRead > 0):
+        global mess
+        mess = mess + ser.read(bytesToRead).decode("UTF-8")
+        while ("#" in mess) and ("!" in mess):
+            start = mess.find("!")
+            end = mess.find("#")
+            processData(mess[start:end + 1])
+            if (end == len(mess)):
+                mess = ""
+            else:
+                mess = mess[end+1:]
 
 while True:
-    value = random.randint(0, 100)
-    print("Cap nhat:", value)
-    client.publish("bbc-temp", value)
-    time.sleep(30)
+    if isMicrobitConnected:
+        readSerial()
+
+    time.sleep(1)
