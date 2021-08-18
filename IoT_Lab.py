@@ -7,8 +7,8 @@ from  Adafruit_IO import  MQTTClient
 AIO_FEED_IDS = ["bbc-led", "bbc-pump"]
 
 
-AIO_USERNAME = ""
-AIO_KEY = ""
+AIO_USERNAME = "NPNLab_BBC"
+AIO_KEY = "aio_radR12aVJMai2YJiGBs1V6TBR06l"
 
 def  connected(client):
     print("Ket noi thanh cong...")
@@ -58,8 +58,13 @@ def processData(data):
     data = data.replace("#", "")
     splitData = data.split(":")
     print(splitData)
-    if splitData[1] == "TEMP":
-        client.publish("bbc-temp", splitData[2])
+    try:
+        if splitData[1] == "TEMP":
+            client.publish("bbc-temp", splitData[2])
+        elif splitData[2] == "HUMI":
+            client.publish("bbc-temp", splitData[3])
+    except:
+        pass
 
 mess = ""
 def readSerial():
